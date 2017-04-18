@@ -1,4 +1,6 @@
 // Data goes here.
+
+//Read all the info from the Workshop....but don't need to copy over objets
 var initialData = {
   // The "user" collection. Contains all of the users in our Facebook system.
   "users": {
