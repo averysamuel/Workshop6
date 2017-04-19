@@ -1,16 +1,6 @@
 import {readDocument, writeDocument, addDocument, deleteDocument, getCollection} from './database.js';
 
-/**
- * Emulates how a REST call is *asynchronous* -- it calls your function back
- * some time in the future with data.
- */
-function emulateServerReturn(data, cb) {
-  setTimeout(() => {
-    cb(data);
-  }, 4);
-}
-
-var token = 'eyJpZCI6NHO='; // <-- Put your base64'd JSON token here
+var token = 'eyJpZCI6NH0='; // <-- Put your base64'd JSON token here
 /**
  * Properly configure+send an XMLHttpRequest with error handling,
  * authorization token, and other needed properties.
@@ -38,7 +28,8 @@ function sendXHR(verb, resource, body, cb) {
       // The server may have included some response text with details concerning
       // the error.
       var responseText = xhr.responseText;
-      FacebookError('Could not ' + verb + " " + resource + ": Received " + statusCode + " " + statusText + ": " + responseText);
+      FacebookError('Could not ' + verb + " " + resource + ": Received " +
+      statusCode + " " + statusText + ": " + responseText);
     }
   });
 
@@ -48,12 +39,14 @@ function sendXHR(verb, resource, body, cb) {
 
   // Network failure: Could not connect to server.
   xhr.addEventListener('error', function() {
-    FacebookError('Could not ' + verb + " " + resource + ": Could not connect to the server.");
+    FacebookError('Could not ' + verb + " " + resource +
+    ": Could not connect to the server.");
   });
 
   // Network failure: request took too long to complete.
   xhr.addEventListener('timeout', function() {
-    FacebookError('Could not ' + verb + " " + resource + ": Request timed out.");
+    FacebookError('Could not ' + verb + " " + resource +
+    ": Request timed out.");
   });
 
   switch (typeof(body)) {
@@ -77,6 +70,28 @@ function sendXHR(verb, resource, body, cb) {
   }
 }
 
+
+/**
+ * Emulates a REST call to get the feed data for a particular user.
+ */
+export function getFeedData(user, cb) {
+  // We don't need to send a body, so pass in 'undefined' for the body.
+  sendXHR('GET', '/user/4/feed', undefined, (xhr) => {
+    // Call the callback with the data.
+    cb(JSON.parse(xhr.responseText));
+  });
+}
+
+/**
+ * Emulates how a REST call is *asynchronous* -- it calls your function back
+ * some time in the future with data.
+ */
+function emulateServerReturn(data, cb) {
+  setTimeout(() => {
+    cb(data);
+  }, 4);
+}
+
 /**
  * Resolves a feed item. Internal to the server, since it's synchronous.
  */
@@ -95,55 +110,17 @@ function getFeedItemSync(feedItemId) {
 }
 
 /**
- * Emulates a REST call to get the feed data for a particular user.
- */
-export function getFeedData(user, cb) {
-  // We don't need to send a body, so pass in 'undefined' for the body.
-  sendXHR('GET', '/user/4/feed', undefined, (xhr) => {
-    // Call the callback with the data.
-    cb(JSON.parse(xhr.responseText));
-  });
-}
-
-/**
  * Adds a new status update to the database.
  */
 export function postStatusUpdate(user, location, contents, cb) {
-  // If we were implementing this for real on an actual server, we would check
-  // that the user ID is correct & matches the authenticated user. But since
-  // we're mocking it, we can be less strict.
-
-  // Get the current UNIX time.
-  var time = new Date().getTime();
-  // The new status update. The database will assign the ID for us.
-  var newStatusUpdate = {
-    "likeCounter": [],
-    "type": "statusUpdate",
-    "contents": {
-      "author": user,
-      "postDate": time,
-      "location": location,
-      "contents": contents,
-      "likeCounter": []
-    },
-    // List of comments on the post
-    "comments": []
-  };
-
-  // Add the status update to the database.
-  // Returns the status update w/ an ID assigned.
-  newStatusUpdate = addDocument('feedItems', newStatusUpdate);
-
-  // Add the status update reference to the front of the current user's feed.
-  var userData = readDocument('users', user);
-  var feedData = readDocument('feeds', userData.feed);
-  feedData.contents.unshift(newStatusUpdate._id);
-
-  // Update the feed object.
-  writeDocument('feeds', feedData);
-
-  // Return the newly-posted object.
-  emulateServerReturn(newStatusUpdate, cb);
+  sendXHR('POST', '/feeditem', {
+    userId: user,
+    location: location,
+    contents: contents
+  }, (xhr) => {
+    // Return the new status update.
+    cb(JSON.parse(xhr.responseText));
+  });
 }
 
 /**
