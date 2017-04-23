@@ -1,21 +1,20 @@
-
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "/",
   "type": "object",
   "properties": {
-    "feednumber": {
-      "type": "integer"
-    },
-    "userId": {
+    "author": {
+      "id": "author",
       "type": "integer"
     },
     "contents": {
+      "id": "contents",
       "type": "string"
     }
   },
+  "additionalProperties": false,
   "required": [
-    "feednumber",
-    "userId",
-    "contents"
+    "contents",
+    "author"
   ]
 }
