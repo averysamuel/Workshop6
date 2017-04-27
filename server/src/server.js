@@ -12,6 +12,7 @@ app.use(bodyParser.text());
 // Support receiving JSON in HTTP request bodies
 app.use(bodyParser.json());
 
+
 var StatusUpdateSchema = require('./schemas/statusupdate.json');
 var CommentSchema = require('./schemas/comment.json');
 var validate = require('express-jsonschema').validate;
@@ -19,59 +20,86 @@ var writeDocument = database.writeDocument;
 var addDocument = database.addDocument;
 
 
-// Post a comment
- app.post('/feeditem/:feeditemid/comment',validate({ body: CommentSchema}),function(req,res){
-    var body = req.body;
-    var fromUser = getUserIdFromToken(req.get('Authorization'));
 
-    var time = new Date().getTime();
-    if (fromUser === body.author) {
+function postComment(feedItemId, author, contents) {
+  // The new status update. The database will assign the ID for us.
+  var feedItem = readDocument('feedItems', feedItemId);
 
-      var feedItemId = parseInt(req.params.feeditemid, 10);
-      var feedItem = readDocument('feedItems', feedItemId);
+  feedItem.comments.push({
+    "author": author,
+    "contents": contents,
+    "postDate": new Date().getTime(),
+    "likeCounter": []
+  });
+  // Update the feed object.
+  writeDocument('feedItems', feedItem);
 
-      feedItem.comments.push({
-        "author": body.author,
-        "contents": body.contents,
-        "postDate": time,
-        "likeCounter": []
-      });
-      writeDocument('feedItems', feedItem);
-      
-      res.status(201);
+  feedItem.comments.map((comment) =>comment.author = readDocument('users', comment.author));
 
-      res.send(getFeedItemSync(feedItemId));
-    }
-    else {
-      //error 401
-      res.status(401).end();
-    }
- })
+  return feedItem;
+}
 
-
-
-
-// Like a comment
-app.put('/feeditem/:feeditemid/commentid/:commentIdx/likelist/:userid', function(req, res) {
+app.post('/comment',validate({ body: CommentSchema }), function(req, res) {
+  // If this function runs, `req.body` passed JSON validation!
+  var body = req.body;
   var fromUser = getUserIdFromToken(req.get('Authorization'));
-  // Convert params from string to number.
-  var feedItemId = parseInt(req.params.feeditemid, 10);
-  var userId = parseInt(req.params.userid, 10);
-  var commentIndex = parseInt(req.params.commentIdx, 10);
 
-  if (fromUser === userId) {
-    var feedItem = readDocument('feedItems', feedItemId);
-    var comment = feedItem.comments[commentIndex];
-    comment.likeCounter.push(userId);
-    writeDocument('feedItems', feedItem);
-    comment.author = readDocument('users', comment.author);
+  // Check if requester is authorized to post this status update.
+  // (The requester must be the author of the update.)
+  if (fromUser === body.userId) {
+    var newUpdate = postComment(body.feednum, body.userId,body.contents);
     res.status(201);
-    res.send(comment);
+    res.set('Location', '/comment/' + newUpdate._id);
+     // Send the update!
+    res.send(newUpdate);
   } else {
     // 401: Unauthorized.
     res.status(401).end();
   }
 });
+
+
+function likeComment(feedItemId, commentIdx, userId) {
+var comment = feedItem.comments[commentIdx];
+var feedItem = readDocument('feedItems', feedItemId);
+comment.likeCounter.push(userId);
+writeDocument('feedItems', feedItem);
+comment.likeCounter.map((userId) => userId.author = readDocument('users', userId.author));
+return comment;
+}
+
+
+// Like a comment.
+app.put('/feeditem/:feeditemid/commentid/:commentIdx/likelist/:userid', function(req, res) {
+  var fromUser = getUserIdFromToken(req.get('Authorization'));
+  // Convert params from string to number.
+  var feedItemId = parseInt(req.params.feeditemid, 10);
+  var userId = parseInt(req.params.userid, 10);
+  var commentIdx = parseInt(req.params.commentIdx, 10);
+
+  if (fromUser === userId) {
+  if (comment.likeCounter.indexOf(userId) === -1) {
+  var comment = likeComment(feedItemId,commentIdx,userId);
+    }
+
+  res.send(comment);
+
+  } else {
+    // 401: Unauthorized.
+    res.status(401).end();
+  }
+});
+
+function unlikeComment(feedItemId, commentIdx, userId) {
+  var comment = feedItem.comments[commentIdx];
+  var feedItem = readDocument('feedItems', feedItemId);
+  if (comment.likeCounter.indexOf(userId) === -1) {
+  comment.likeCounter.push(userId);
+    writeDocument('feedItems', feedItem);
+  }
+  comment.author = readDocument('users', comment.author);
+  return comment;
+}
 
 // Unlike a comment
 app.delete('/feeditem/:feeditemid/commentid/:commentIdx/likelist/:userid', function(req, res) {
@@ -79,15 +107,10 @@ app.delete('/feeditem/:feeditemid/commentid/:commentIdx/likelist/:userid', funct
   // Convert params from string to number.
   var feedItemId = parseInt(req.params.feeditemid, 10);
   var userId = parseInt(req.params.userid, 10);
-  var commentIndex = parseInt(req.params.commentIdx, 10);
+  var commentIdx = parseInt(req.params.commentIdx, 10);
 
   if (fromUser === userId) {
-    var feedItem = readDocument('feedItems', feedItemId);
-    var comment = feedItem.comments[commentIndex];
-    if (comment.likeCounter.indexOf(userId) === -1) {
-    comment.likeCounter.push(userId);
-      writeDocument('feedItems', feedItem);
-    }
+    var comment = unlikeComment(feedItemId, commentIdx, userId);
     // Return a resolved version of the likeCounter
     res.send(comment.likeCounter.map((userId) => readDocument('users', userId)));
   } else {

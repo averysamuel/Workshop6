@@ -127,34 +127,35 @@ export function postStatusUpdate(user, location, contents, cb) {
  * Adds a new comment to the database on the given feed item.
  */
 export function postComment(feedItemId, author, contents, cb) {
-sendXHR('POST', '/feeditem/' + feedItemId + '/comment', {
-  userId: author,
-  contents:contents
-}, (xhr)=> {
-  //Return the new comment.
+  sendXHR('POST', '/comment', {
+    feednum: feedItemId,
+    userId: author,
+    contents: contents
+  }, (xhr) => {
+    // Return the new status update.
     cb(JSON.parse(xhr.responseText));
   });
 }
 
 
 /**
- * Adds a 'like' to a comment.
- */
+* Adds a 'like' to a comment.
+*/
 export function likeComment(feedItemId, commentIdx, userId, cb) {
-  sendXHR('PUT', '/feeditem/' + feedItemId + '/commentid/' + commentIdx + '/likelist/' + userId,
- undefined, (xhr) => {
-  cb(JSON.parse(xhr.responseText));
-});
+ sendXHR('PUT', '/feeditem/' + feedItemId + '/commentid/' + commentIdx + '/likelist/' + userId,
+         undefined, (xhr) => {
+   cb(JSON.parse(xhr.responseText));
+ });
 }
 
 /**
- * Removes a 'like' from a comment.
- */
+* Removes a 'like' from a comment.
+*/
 export function unlikeComment(feedItemId, commentIdx, userId, cb) {
-  sendXHR('DELETE', '/feeditem/' + feedItemId + '/commentid/' + commentIdx + '/likelist/' + userId,
- undefined, (xhr) => {
-  cb(JSON.parse(xhr.responseText));
-});
+ sendXHR('DELETE', '/feeditem/' + feedItemId + '/commentid/' + commentIdx + '/likelist/' + userId,
+         undefined, (xhr) => {
+   cb(JSON.parse(xhr.responseText));
+ });
 }
 
 
